@@ -1,87 +1,101 @@
 import streamlit as st
-from openai import OpenAI
-import base64
+import requests
 from PIL import Image
 import io
 import os
+import base64
 
-st.set_page_config(page_title="Interior Design Generator (OpenAI API)", layout="wide")
+st.set_page_config(page_title="Interior Design Generator - Stability AI", layout="wide")
 
-# -------------------------
+# ---------------------------------------
 # Load API Key
-# -------------------------
+# ---------------------------------------
 API_KEY = None
-if "OPENAI_API_KEY" in st.secrets:
-    API_KEY = st.secrets["OPENAI_API_KEY"]
+
+if "STABILITY_API_KEY" in st.secrets:
+    API_KEY = st.secrets["STABILITY_API_KEY"]
 else:
-    API_KEY = os.getenv("OPENAI_API_KEY")
+    API_KEY = os.getenv("STABILITY_API_KEY")
 
 if not API_KEY:
-    st.error("No OpenAI API key found. Add it in Streamlit Secrets or as an env variable.")
+    st.error("❌ Missing StabilityAI API Key. Add STABILITY_API_KEY to secrets.")
     st.stop()
 
-client = OpenAI(api_key=API_KEY)
+headers = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
 
-# -------------------------
+API_URL = "https://api.stability.ai/v2beta/stable-image/generate/sd3"
+
+
+# ---------------------------------------
+# Generate Image Function
+# ---------------------------------------
+def generate_image(prompt, size="1024x1024"):
+    width, height = size.split("x")
+
+    payload = {
+        "prompt": prompt,
+        "aspect_ratio": "1:1",
+        "output_format": "png",
+        "height": int(height),
+        "width": int(width)
+    }
+
+    response = requests.post(API_URL, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        raise ValueError(f"Error {response.status_code}: {response.text}")
+
+    img_bytes = response.content
+    img = Image.open(io.BytesIO(img_bytes))
+    return img
+
+
+# ---------------------------------------
 # UI
-# -------------------------
-st.title("🏡 Interior Design Generator (OpenAI API-based)")
-st.markdown("This app uses **OpenAI's image generation API** to produce interior design images.")
+# ---------------------------------------
+st.title("🏡 Interior Design Generator (Stability AI — FREE)")
+st.write("Generate interior design images using StabilityAI's **SD3** model for free.")
 
 prompt = st.text_area(
     "Enter your interior design prompt:",
-    value="A modern minimalist bedroom with white walls and wooden furniture",
+    value="A luxury modern living room with marble floor, soft lighting, and elegant furniture",
     height=150
 )
 
-num_images = st.slider("Number of images", 1, 4, 1)
-
 size = st.selectbox(
     "Image Size",
-    ["1024x1024", "512x512", "256x256"],
-    index=0
+    ["512x512", "768x768", "1024x1024"],
+    index=2
 )
 
-generate = st.button("Generate Images")
+generate = st.button("Generate Image")
 
-# -------------------------
-# Image Generation
-# -------------------------
+# ---------------------------------------
+# Generate
+# ---------------------------------------
 if generate:
-    try:
-        with st.spinner("Generating images with OpenAI GPU backend..."):
-            response = client.images.generate(
-                model="gpt-image-1",
-                prompt=prompt,
-                size=size,
-                n=num_images
-            )
+    if prompt.strip() == "":
+        st.error("⚠ Enter a prompt.")
+    else:
+        with st.spinner("⏳ Generating image using FREE StabilityAI API…"):
+            try:
+                img = generate_image(prompt, size)
+                st.success("Image generated successfully!")
 
-        images = []
-        for img_data in response.data:
-            img_b64 = img_data.b64_json
-            img = Image.open(io.BytesIO(base64.b64decode(img_b64)))
-            images.append(img)
+                st.image(img, caption="Generated Design", use_column_width=True)
 
-        st.success("Images generated successfully!")
-
-        cols = st.columns(num_images)
-        for i, img in enumerate(images):
-            with cols[i]:
-                st.image(img, caption=f"Result #{i+1}", use_column_width=True)
-
-                # Download button
-                img_buffer = io.BytesIO()
-                img.save(img_buffer, format="PNG")
-                img_bytes = img_buffer.getvalue()
-                b64 = base64.b64encode(img_bytes).decode()
-
+                # Download
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
                 st.download_button(
-                    "Download",
-                    data=img_bytes,
-                    file_name=f"design_{i+1}.png",
+                    "Download Image",
+                    buf.getvalue(),
+                    "sd3_design.png",
                     mime="image/png"
                 )
 
-    except Exception as e:
-        st.error(f"Image generation failed: {str(e)}")
+            except Exception as e:
+                st.error(f"Generation failed: {str(e)}")
