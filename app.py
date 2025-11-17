@@ -3,7 +3,7 @@ import requests
 from PIL import Image
 import io
 
-st.set_page_config(page_title="Interior Design Generator - Clipdrop SDXL", layout="wide")
+st.set_page_config(page_title="Interior Design Generator - Clipdrop", layout="wide")
 
 API_KEY = st.secrets.get("CLIPDROP_API_KEY")
 
@@ -13,31 +13,24 @@ if not API_KEY:
 
 CLIPDROP_URL = "https://clipdrop-api.co/text-to-image/v1"
 
-st.title("🏡 Interior Design Generator (Clipdrop SDXL)")
-st.write("Generate interior design concepts using **Stable Diffusion XL** from Clipdrop.")
+st.title("🏡 Interior Design Generator (Clipdrop — Simple & Fast)")
+st.write("Generate interior design images using Clipdrop's text-to-image API.")
 
 prompt = st.text_area(
     "Interior design prompt:",
-    "A luxury modern bedroom interior with warm ambient lighting and elegant furniture",
+    "A modern luxury bedroom interior with soft lighting and warm colors",
     height=150
 )
 
-steps = st.slider("Inference Steps", 10, 50, 30)
-guidance = st.slider("Guidance Scale", 1.0, 15.0, 7.5)
-
-generate = st.button("Generate")
+generate = st.button("Generate Image")
 
 
-def generate_image(prompt, steps, guidance):
-    files = {
-        "prompt": (None, prompt),
-        "model": (None, "StableDiffusionXL"),
-        "guidance_scale": (None, str(guidance)),
-        "num_inference_steps": (None, str(steps)),
-        "output_format": (None, "png"),
-    }
-
+def generate_image(prompt):
     headers = {"x-api-key": API_KEY}
+
+    files = {
+        "prompt": (None, prompt)
+    }
 
     response = requests.post(CLIPDROP_URL, headers=headers, files=files)
 
@@ -48,9 +41,9 @@ def generate_image(prompt, steps, guidance):
 
 
 if generate:
-    with st.spinner("⏳ Generating image using Clipdrop SDXL…"):
+    with st.spinner("⏳ Generating image using Clipdrop…"):
         try:
-            img = generate_image(prompt, steps, guidance)
+            img = generate_image(prompt)
 
             st.success("Image Generated Successfully!")
             st.image(img, caption="Generated Interior Design", use_column_width=True)
