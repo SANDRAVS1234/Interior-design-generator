@@ -1,45 +1,42 @@
 import streamlit as st
-from diffusers import StableDiffusionXLImg2ImgPipeline, StableDiffusionXLPipeline, EulerDiscreteScheduler
-import torch
-from PIL import Image
+import requests
+import base64
 
 st.set_page_config(page_title="Interior Design Generator", layout="wide")
 
-@st.cache_resource
-def load_model():
-    model_id = "stabilityai/sdxl-turbo"
+API_KEY = st.secrets["TOGETHER_API_KEY"]
 
-    # Force a safe scheduler (prevents IndexError)
-    scheduler = EulerDiscreteScheduler.from_pretrained(model_id, subfolder="scheduler")
+def generate_image(prompt):
+    url = "https://api.together.xyz/v1/images/generations"
 
-    pipe = StableDiffusionXLPipeline.from_pretrained(
-        model_id,
-        scheduler=scheduler,
-        torch_dtype=torch.float32,
-    )
+    payload = {
+        "model": "stabilityai/sdxl-turbo",
+        "prompt": prompt,
+        "steps": 4,
+        "width": 1024,
+        "height": 1024
+    }
 
-    pipe = pipe.to("cpu")
-    return pipe
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    data = response.json()
+    img_base64 = data["data"][0]["b64_json"]
+    return Image.open(io.BytesIO(base64.b64decode(img_base64)))
 
 st.title("🏡 Interior Design Generator")
 
 prompt = st.text_area("Enter your interior design prompt:")
 
 if st.button("Generate"):
-    if not prompt.strip():
-        st.error("Please enter a prompt!")
+    if prompt.strip() == "":
+        st.error("Please enter a prompt.")
     else:
-        with st.spinner("Generating..."):
-            pipe = load_model()
-            image = pipe(prompt, num_inference_steps=4).images[0]
+        with st.spinner("Generating image using GPU..."):
+            img = generate_image(prompt)
 
-        st.image(image, caption="Generated Design", use_column_width=True)
-
-        image.save("design.png")
-        with open("design.png", "rb") as f:
-            st.download_button(
-                "Download Image",
-                data=f,
-                file_name="interior_design.png",
-                mime="image/png"
-            )
+        st.image(img, caption="Generated Design", use_column_width=True)
