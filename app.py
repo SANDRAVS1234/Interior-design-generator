@@ -5,7 +5,7 @@ from PIL import Image
 
 # --- Configuration ---
 # This MUST match the path where your notebook saved the fine-tuned model
-MODEL_PATH = "./fine_tuned_model"
+MODEL_PATH = r"C:\Users\sandra\Documents\streamlit_project\fine_tuned_model"
 APP_API_KEY = "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" 
 
 # --- Page Setup ---
@@ -83,6 +83,7 @@ st.sidebar.info(
     "This Streamlit app loads a fine-tuned Stable Diffusion model (`runwayml/stable-diffusion-v1-5`) "
     "for generating interior design images based on text prompts."
 )
+
 
 
 
