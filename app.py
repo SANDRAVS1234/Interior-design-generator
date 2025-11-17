@@ -1,31 +1,40 @@
 import streamlit as st
-from PIL import Image
-import torch
 from diffusers import StableDiffusionPipeline
+import torch
+from PIL import Image
 
-st.set_page_config(page_title="DreamSpace: AI-Crafted Interiors", layout="wide")
+st.set_page_config(page_title="Interior Design Generator", layout="wide")
 
 @st.cache_resource
 def load_model():
-    model_id = "runwayml/stable-diffusion-v1-5"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-    pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+    model_id = "Xenova/stable-diffusion-v1-5"  # lightweight model (NO heavy download)
+
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id,
+        torch_dtype=torch.float32
+    )
+    pipe = pipe.to("cpu")   # this model runs well on CPU
     return pipe
 
-st.title("🎨 Text-to-Image Generator")
+st.title("🏡 Interior Design Generator")
 
-prompt = st.text_input("Enter your prompt:")
-generate = st.button("Generate")
+prompt = st.text_area("Enter your interior design prompt:")
 
-if generate and prompt.strip() != "":
-    with st.spinner("Generating image..."):
-        pipe = load_model()
-        result = pipe(prompt)
-        image = result.images[0]
+if st.button("Generate"):
+    if not prompt.strip():
+        st.error("Please enter a prompt!")
+    else:
+        with st.spinner("Generating..."):
+            pipe = load_model()
+            image = pipe(prompt).images[0]
 
-        st.image(image, caption="Generated Image", use_column_width=True)
+        st.image(image, caption="Generated Design", use_column_width=True)
 
-        # Option to download output
-        image.save("output.png")
-        with open("output.png", "rb") as f:
-            st.download_button("Download Image", data=f, file_name="image.png")
+        image.save("design.png")
+        with open("design.png", "rb") as f:
+            st.download_button(
+                "Download Image",
+                data=f,
+                file_name="interior_design.png",
+                mime="image/png"
+            )
