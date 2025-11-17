@@ -7,13 +7,13 @@ st.set_page_config(page_title="Interior Design Generator", layout="wide")
 
 @st.cache_resource
 def load_model():
-    model_id = "Xenova/stable-diffusion-v1-5"  # lightweight model (NO heavy download)
+    model_id = "compvis/stable-diffusion-v1-4"
 
     pipe = StableDiffusionPipeline.from_pretrained(
         model_id,
         torch_dtype=torch.float32
     )
-    pipe = pipe.to("cpu")   # this model runs well on CPU
+    pipe = pipe.to("cpu")   # Works reliably on Streamlit Cloud
     return pipe
 
 st.title("🏡 Interior Design Generator")
