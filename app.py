@@ -1,5 +1,5 @@
 import streamlit as st
-from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionXLImg2ImgPipeline, StableDiffusionXLPipeline, EulerDiscreteScheduler
 import torch
 from PIL import Image
 
@@ -7,13 +7,18 @@ st.set_page_config(page_title="Interior Design Generator", layout="wide")
 
 @st.cache_resource
 def load_model():
-    model_id = "compvis/stable-diffusion-v1-4"
+    model_id = "stabilityai/sdxl-turbo"
 
-    pipe = StableDiffusionPipeline.from_pretrained(
+    # Force a safe scheduler (prevents IndexError)
+    scheduler = EulerDiscreteScheduler.from_pretrained(model_id, subfolder="scheduler")
+
+    pipe = StableDiffusionXLPipeline.from_pretrained(
         model_id,
-        torch_dtype=torch.float32
+        scheduler=scheduler,
+        torch_dtype=torch.float32,
     )
-    pipe = pipe.to("cpu")   # Works reliably on Streamlit Cloud
+
+    pipe = pipe.to("cpu")
     return pipe
 
 st.title("🏡 Interior Design Generator")
@@ -26,7 +31,7 @@ if st.button("Generate"):
     else:
         with st.spinner("Generating..."):
             pipe = load_model()
-            image = pipe(prompt).images[0]
+            image = pipe(prompt, num_inference_steps=4).images[0]
 
         st.image(image, caption="Generated Design", use_column_width=True)
 
