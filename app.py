@@ -3,13 +3,12 @@ import requests
 from PIL import Image
 import io
 import os
-import base64
 
-st.set_page_config(page_title="Interior Design Generator - Stability AI", layout="wide")
+st.set_page_config(page_title="Interior Design Generator - Stability AI SD3", layout="wide")
 
-# ---------------------------------------
+# ------------------------------
 # Load API Key
-# ---------------------------------------
+# ------------------------------
 API_KEY = None
 
 if "STABILITY_API_KEY" in st.secrets:
@@ -18,84 +17,71 @@ else:
     API_KEY = os.getenv("STABILITY_API_KEY")
 
 if not API_KEY:
-    st.error("❌ Missing StabilityAI API Key. Add STABILITY_API_KEY to secrets.")
+    st.error("❌ Missing API key. Add STABILITY_API_KEY to Streamlit secrets.")
     st.stop()
+
+
+# ------------------------------
+# SD3 Image Generation Endpoint
+# ------------------------------
+API_URL = "https://api.stability.ai/v2beta/stable-image/generate/sd3"
 
 headers = {
     "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
+    "Accept": "image/png"
 }
 
-API_URL = "https://api.stability.ai/v2beta/stable-image/generate/sd3"
 
-
-# ---------------------------------------
-# Generate Image Function
-# ---------------------------------------
-def generate_image(prompt, size="1024x1024"):
-    width, height = size.split("x")
-
-    payload = {
-        "prompt": prompt,
-        "aspect_ratio": "1:1",
-        "output_format": "png",
-        "height": int(height),
-        "width": int(width)
+# ------------------------------
+# Call Stability API (multipart)
+# ------------------------------
+def generate_image(prompt: str):
+    files = {
+        "prompt": (None, prompt),
+        "output_format": (None, "png"),
+        "aspect_ratio": (None, "1:1"),
     }
 
-    response = requests.post(API_URL, headers=headers, json=payload)
+    response = requests.post(API_URL, headers=headers, files=files)
 
     if response.status_code != 200:
-        raise ValueError(f"Error {response.status_code}: {response.text}")
+        raise Exception(f"❌ API Error {response.status_code}: {response.text}")
 
-    img_bytes = response.content
-    img = Image.open(io.BytesIO(img_bytes))
+    img = Image.open(io.BytesIO(response.content))
     return img
 
 
-# ---------------------------------------
+# ------------------------------
 # UI
-# ---------------------------------------
-st.title("🏡 Interior Design Generator (Stability AI — FREE)")
-st.write("Generate interior design images using StabilityAI's **SD3** model for free.")
+# ------------------------------
+st.title("🏡 Interior Design Generator (Stability AI SD3 — FREE Trial)")
+st.write("Generate high-quality interior design images using Stable Diffusion 3 (SD3).")
 
 prompt = st.text_area(
     "Enter your interior design prompt:",
-    value="A luxury modern living room with marble floor, soft lighting, and elegant furniture",
-    height=150
+    "A luxurious modern bedroom interior with large windows, warm lighting, and minimal furniture"
 )
 
-size = st.selectbox(
-    "Image Size",
-    ["512x512", "768x768", "1024x1024"],
-    index=2
-)
+generate_btn = st.button("Generate Image")
 
-generate = st.button("Generate Image")
-
-# ---------------------------------------
-# Generate
-# ---------------------------------------
-if generate:
-    if prompt.strip() == "":
-        st.error("⚠ Enter a prompt.")
+if generate_btn:
+    if not prompt.strip():
+        st.error("⚠ Please enter a prompt.")
     else:
-        with st.spinner("⏳ Generating image using FREE StabilityAI API…"):
+        with st.spinner("⏳ Generating image using Stability AI (SD3)…"):
             try:
-                img = generate_image(prompt, size)
-                st.success("Image generated successfully!")
-
-                st.image(img, caption="Generated Design", use_column_width=True)
+                img = generate_image(prompt)
+                st.image(img, caption="Generated Interior Design", use_column_width=True)
 
                 # Download
                 buf = io.BytesIO()
                 img.save(buf, format="PNG")
                 st.download_button(
                     "Download Image",
-                    buf.getvalue(),
-                    "sd3_design.png",
+                    data=buf.getvalue(),
+                    file_name="sd3_interiordesign.png",
                     mime="image/png"
                 )
 
             except Exception as e:
-                st.error(f"Generation failed: {str(e)}")
+                st.error(str(e))
