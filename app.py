@@ -23,20 +23,15 @@ def generate_image(prompt):
     }
 
     response = requests.post(url, json=payload, headers=headers)
-
     data = response.json()
+
+    # 🔥 INSERTED DEBUG LINE (must be here)
+    st.write("API Response:", data)
+
+    # If the API returned an error instead of an image
+    if "data" not in data:
+        st.error("API error: " + str(data))
+        return None
+
     img_base64 = data["data"][0]["b64_json"]
     return Image.open(io.BytesIO(base64.b64decode(img_base64)))
-
-st.title("🏡 Interior Design Generator")
-
-prompt = st.text_area("Enter your interior design prompt:")
-
-if st.button("Generate"):
-    if prompt.strip() == "":
-        st.error("Please enter a prompt.")
-    else:
-        with st.spinner("Generating image using GPU..."):
-            img = generate_image(prompt)
-
-        st.image(img, caption="Generated Design", use_column_width=True)
