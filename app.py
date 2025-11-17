@@ -1,37 +1,86 @@
 import streamlit as st
-import requests
-import base64
+import torch
+from diffusers import StableDiffusionPipeline
+from PIL import Image
 
-st.set_page_config(page_title="Interior Design Generator", layout="wide")
+# --- Configuration ---
+# This MUST match the path where your notebook saved the fine-tuned model
+MODEL_PATH = "/content/fine_tuned_model" 
+# This is a simple password to access your app, as you requested an "api key"
+APP_API_KEY = "your_secret_password" 
 
-API_KEY = st.secrets["TOGETHER_API_KEY"]
+# --- Page Setup ---
+st.set_page_config(layout="wide", page_title="Interior Design Generator")
+st.title("Interior Design Stable Diffusion Model 🏠")
 
-def generate_image(prompt):
-    url = "https://api.together.xyz/v1/images/generations"
-
-    payload = {
-        "model": "stabilityai/sdxl-turbo",
-        "prompt": prompt,
-        "steps": 4,
-        "width": 1024,
-        "height": 1024
-    }
-
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.post(url, json=payload, headers=headers)
-    data = response.json()
-
-    # 🔥 INSERTED DEBUG LINE (must be here)
-    st.write("API Response:", data)
-
-    # If the API returned an error instead of an image
-    if "data" not in data:
-        st.error("API error: " + str(data))
+# --- Caching the Model ---
+# This loads the model only once and keeps it in memory for performance
+@st.cache_resource
+def load_pipeline(model_path):
+    try:
+        pipeline = StableDiffusionPipeline.from_pretrained(
+            model_path,
+            torch_dtype=torch.float16
+        )
+        pipeline = pipeline.to("cuda")
+        pipeline.enable_xformers_memory_efficient_attention()
+        return pipeline
+    except Exception as e:
+        st.error(f"Error loading model from {model_path}. Make sure the path is correct. Error: {e}")
         return None
 
-    img_base64 = data["data"][0]["b64_json"]
-    return Image.open(io.BytesIO(base64.b64decode(img_base64)))
+# --- Main Application ---
+# Simple password protection
+api_key_input = st.text_input("Enter your API Key (Password):", type="password")
+
+if api_key_input == APP_API_KEY:
+    st.success("Access Granted!")
+    
+    # Load the model
+    pipeline = load_pipeline(MODEL_PATH)
+    
+    if pipeline:
+        # --- User Inputs ---
+        prompt = st.text_area("Enter your design prompt:", "A minimalist style bedroom interior design")
+        
+        with st.form("generate_form"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                num_inference_steps = st.slider("Inference Steps", 25, 100, 50)
+            with col2:
+                guidance_scale = st.slider("Guidance Scale (CFG)", 1.0, 20.0, 7.5)
+            with col3:
+                num_images = st.slider("Number of Images", 1, 4, 1)
+
+            submit_button = st.form_submit_button(label="Generate Image")
+
+        # --- Image Generation ---
+        if submit_button:
+            with st.spinner(f"Generating {num_images} image(s)..."):
+                try:
+                    images_list = []
+                    for _ in range(num_images):
+                        with torch.autocast("cuda"):
+                            image = pipeline(
+                                prompt,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                height=512,
+                                width=512
+                            ).images[0]
+                        images_list.append(image)
+                    
+                    st.image(images_list, caption=[f"Generated Image #{i+1}" for i in range(len(images_list))])
+                
+                except Exception as e:
+                    st.error(f"An error occurred during image generation: {e}")
+
+else:
+    if api_key_input:
+        st.error("Invalid API Key. Please try again.")
+
+st.sidebar.info(
+    "**About this app:**\n"
+    "This Streamlit app loads a fine-tuned Stable Diffusion model (`runwayml/stable-diffusion-v1-5`) "
+    "for generating interior design images based on text prompts."
+)
